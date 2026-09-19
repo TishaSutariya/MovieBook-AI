@@ -4,7 +4,6 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-
 # ============================================================
 # PATH SETUP
 # ============================================================
@@ -13,7 +12,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
-
 
 from src.movie_recommender import MovieRecommender
 from src.book_recommender import BookRecommender
@@ -55,34 +53,24 @@ st.set_page_config(
 
 @st.cache_data
 def load_movie_data():
-
     if not MOVIE_DATA_PATH.exists():
-
         st.error(
             f"Movie dataset not found:\n{MOVIE_DATA_PATH}"
         )
-
         st.stop()
 
-    return pd.read_csv(
-        MOVIE_DATA_PATH
-    )
+    return pd.read_csv(MOVIE_DATA_PATH)
 
 
 @st.cache_data
 def load_book_data():
-
     if not BOOK_DATA_PATH.exists():
-
         st.error(
             f"Book dataset not found:\n{BOOK_DATA_PATH}"
         )
-
         st.stop()
 
-    return pd.read_csv(
-        BOOK_DATA_PATH
-    )
+    return pd.read_csv(BOOK_DATA_PATH)
 
 
 # ============================================================
@@ -91,13 +79,11 @@ def load_book_data():
 
 @st.cache_resource
 def load_movie_model():
-
     return MovieRecommender()
 
 
 @st.cache_resource
 def load_book_model():
-
     return BookRecommender()
 
 
@@ -114,6 +100,7 @@ st.sidebar.title("🎬📚 MovieBook AI")
 st.sidebar.caption(
     "Movie + Book Recommendation System"
 )
+
 page = st.sidebar.radio(
     "Navigation",
     [
@@ -162,30 +149,24 @@ if page == "🏠 Home":
 
     st.markdown("---")
 
-    st.header(
-        "📊 Dataset Overview"
-    )
+    st.header("📊 Dataset Overview")
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-
         st.metric(
             "🎬 Movies",
             f"{len(movies):,}"
         )
 
     with col2:
-
         st.metric(
             "📚 Books",
             f"{len(books):,}"
         )
 
     with col3:
-
         if "source" in movies.columns:
-
             netflix_count = (
                 movies["source"]
                 .astype(str)
@@ -193,9 +174,7 @@ if page == "🏠 Home":
                 .eq("netflix")
                 .sum()
             )
-
         else:
-
             netflix_count = 0
 
         st.metric(
@@ -204,18 +183,14 @@ if page == "🏠 Home":
         )
 
     with col4:
-
         if "is_indian" in movies.columns:
-
             indian_count = (
                 movies["is_indian"]
                 .fillna(False)
                 .astype(bool)
                 .sum()
             )
-
         else:
-
             indian_count = 0
 
         st.metric(
@@ -229,14 +204,11 @@ if page == "🏠 Home":
     # HOW IT WORKS
     # ========================================================
 
-    st.header(
-        "🧠 How MovieBook AI Works"
-    )
+    st.header("🧠 How MovieBook AI Works")
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-
         st.markdown(
             """
             ### 📂 1. Data Processing
@@ -247,7 +219,6 @@ if page == "🏠 Home":
         )
 
     with col2:
-
         st.markdown(
             """
             ### 🧠 2. NLP & Features
@@ -258,7 +229,6 @@ if page == "🏠 Home":
         )
 
     with col3:
-
         st.markdown(
             """
             ### 🎯 3. Similarity Matching
@@ -270,9 +240,7 @@ if page == "🏠 Home":
 
     st.markdown("---")
 
-    st.header(
-        "🇮🇳 Bollywood Movie Recommendation"
-    )
+    st.header("🇮🇳 Indian Movie Recommendation")
 
     st.write(
         """
@@ -291,10 +259,10 @@ if page == "🏠 Home":
 
 
 # ============================================================
-# BOLLYWOOD MOVIE RECOMMENDATION
+# INDIAN MOVIE RECOMMENDATION
 # ============================================================
 
-elif page == "🇮🇳 Bollywood Movie Recommendation":
+elif page == "🎬 Bollywood Movie Recommendation":
 
     st.title(
         "🇮🇳 Bollywood Movie Recommendation"
@@ -308,12 +276,10 @@ elif page == "🇮🇳 Bollywood Movie Recommendation":
     )
 
     if "is_indian" not in movies.columns:
-
         st.error(
             "Indian movie information is missing. "
             "Run the preprocessing script again."
         )
-
         st.stop()
 
     indian_movies = movies[
@@ -323,11 +289,9 @@ elif page == "🇮🇳 Bollywood Movie Recommendation":
     ].copy()
 
     if indian_movies.empty:
-
         st.warning(
             "No Indian movies were detected."
         )
-
         st.stop()
 
     st.metric(
@@ -369,9 +333,10 @@ elif page == "🇮🇳 Bollywood Movie Recommendation":
             "Finding similar Indian movies..."
         ):
 
+            # Get a larger pool first.
             recommendations = movie_model.recommend(
                 selected_movie,
-                n=30
+                n=100
             )
 
         if recommendations.empty:
@@ -424,9 +389,7 @@ elif page == "🇮🇳 Bollywood Movie Recommendation":
                     start=1
                 ):
 
-                    col1, col2 = st.columns(
-                        [5, 1]
-                    )
+                    col1, col2 = st.columns([5, 1])
 
                     with col1:
 
@@ -440,7 +403,6 @@ elif page == "🇮🇳 Bollywood Movie Recommendation":
                         )
 
                         if pd.isna(genre):
-
                             genre = "Not available"
 
                         st.write(
@@ -456,7 +418,6 @@ elif page == "🇮🇳 Bollywood Movie Recommendation":
                             pd.isna(director)
                             or not str(director).strip()
                         ):
-
                             director = "Not available"
 
                         st.write(
@@ -471,17 +432,13 @@ elif page == "🇮🇳 Bollywood Movie Recommendation":
                         if pd.notna(year):
 
                             try:
-
                                 year = int(
                                     float(year)
                                 )
-
-                            except:
-
+                            except (ValueError, TypeError):
                                 pass
 
                         else:
-
                             year = "N/A"
 
                         st.write(
@@ -576,9 +533,7 @@ elif page == "🎬 All Movie Recommendation":
                 start=1
             ):
 
-                col1, col2 = st.columns(
-                    [5, 1]
-                )
+                col1, col2 = st.columns([5, 1])
 
                 with col1:
 
@@ -587,19 +542,23 @@ elif page == "🎬 All Movie Recommendation":
                     )
 
                     st.write(
-                        f"**Genre:** {row.get('genre', 'Not available')}"
+                        f"**Genre:** "
+                        f"{row.get('genre', 'Not available')}"
                     )
 
                     st.write(
-                        f"**Director:** {row.get('director', 'Not available')}"
+                        f"**Director:** "
+                        f"{row.get('director', 'Not available')}"
                     )
 
                     st.write(
-                        f"**Year:** {row.get('year', 'N/A')}"
+                        f"**Year:** "
+                        f"{row.get('year', 'N/A')}"
                     )
 
                     st.caption(
-                        f"Source: {row.get('source', 'Unknown')}"
+                        f"Source: "
+                        f"{row.get('source', 'Unknown')}"
                     )
 
                 with col2:
@@ -699,9 +658,7 @@ elif page == "📚 Book Recommendation":
                 start=1
             ):
 
-                col1, col2 = st.columns(
-                    [5, 1]
-                )
+                col1, col2 = st.columns([5, 1])
 
                 with col1:
 
@@ -710,11 +667,13 @@ elif page == "📚 Book Recommendation":
                     )
 
                     st.write(
-                        f"**Author:** {row.get('authors', 'Not available')}"
+                        f"**Author:** "
+                        f"{row.get('authors', 'Not available')}"
                     )
 
                     st.write(
-                        f"**Category:** {row.get('categories', 'Not available')}"
+                        f"**Category:** "
+                        f"{row.get('categories', 'Not available')}"
                     )
 
                 with col2:
@@ -750,16 +709,12 @@ elif page == "📚 Book Recommendation":
 
             if not selected_row.empty:
 
-                selected_categories = (
-                    str(
-                        selected_row.iloc[0]
-                        .get(
-                            "categories",
-                            ""
-                        )
+                selected_categories = str(
+                    selected_row.iloc[0].get(
+                        "categories",
+                        ""
                     )
-                    .lower()
-                )
+                ).lower()
 
                 if selected_categories.strip():
 
@@ -831,8 +786,7 @@ elif page == "📚 Book Recommendation":
             if not selected_row.empty:
 
                 selected_author = str(
-                    selected_row.iloc[0]
-                    .get(
+                    selected_row.iloc[0].get(
                         "authors",
                         ""
                     )
@@ -908,34 +862,23 @@ elif page == "📚 Book Recommendation":
                 and "average_rating" in books.columns
             ):
 
-                popular_books = (
-                    books[
-                        [
-                            "title",
-                            "authors",
-                            "categories",
-                            "average_rating",
-                            "ratings_count"
-                        ]
+                popular_books = books[
+                    [
+                        "title",
+                        "authors",
+                        "categories",
+                        "average_rating",
+                        "ratings_count"
                     ]
-                    .copy()
-                )
+                ].copy()
 
-                popular_books[
-                    "average_rating"
-                ] = pd.to_numeric(
-                    popular_books[
-                        "average_rating"
-                    ],
+                popular_books["average_rating"] = pd.to_numeric(
+                    popular_books["average_rating"],
                     errors="coerce"
                 )
 
-                popular_books[
-                    "ratings_count"
-                ] = pd.to_numeric(
-                    popular_books[
-                        "ratings_count"
-                    ],
+                popular_books["ratings_count"] = pd.to_numeric(
+                    popular_books["ratings_count"],
                     errors="coerce"
                 )
 
@@ -978,7 +921,6 @@ elif page == "📊 Movie Analytics":
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-
         st.metric(
             "Total Movies",
             f"{len(movies):,}"
@@ -996,7 +938,6 @@ elif page == "📊 Movie Analytics":
             )
 
         else:
-
             indian_count = 0
 
         st.metric(
@@ -1017,7 +958,6 @@ elif page == "📊 Movie Analytics":
             )
 
         else:
-
             netflix_count = 0
 
         st.metric(
@@ -1030,12 +970,10 @@ elif page == "📊 Movie Analytics":
         if "year" in movies.columns:
 
             release_years = (
-                movies["year"]
-                .nunique()
+                movies["year"].nunique()
             )
 
         else:
-
             release_years = 0
 
         st.metric(
@@ -1056,8 +994,7 @@ elif page == "📊 Movie Analytics":
     if "source" in movies.columns:
 
         st.bar_chart(
-            movies["source"]
-            .value_counts()
+            movies["source"].value_counts()
         )
 
     # --------------------------------------------------------
@@ -1079,10 +1016,11 @@ elif page == "📊 Movie Analytics":
                     .sum()
                 ),
                 "Other Movies": int(
-                    (~movies["is_indian"]
-                    .fillna(False)
-                    .astype(bool))
-                    .sum()
+                    (
+                        ~movies["is_indian"]
+                        .fillna(False)
+                        .astype(bool)
+                    ).sum()
                 )
             }
         )
@@ -1218,7 +1156,6 @@ elif page == "📖 Book Analytics":
         ).mean()
 
         if pd.isna(average_rating):
-
             average_rating = 0
 
         st.metric(
@@ -1357,7 +1294,6 @@ elif page == "🤖 AI / NLP Insights":
     st.write(
         """
         MovieBook AI uses content-based recommendation.
-
         Instead of comparing users, the system compares
         the content and textual characteristics of movies
         and books.
@@ -1478,6 +1414,27 @@ elif page == "🤖 AI / NLP Insights":
 
         This is a similarity score, not a rating or
         probability of liking.
+        """
+    )
+
+    # --------------------------------------------------------
+    # EVALUATION NOTE
+    # --------------------------------------------------------
+
+    st.header(
+        "📊 Recommendation Evaluation"
+    )
+
+    st.write(
+        """
+        This project uses content-based recommendation rather
+        than binary classification. Therefore, classification
+        metrics such as accuracy, precision, recall, F1-score,
+        and confusion matrix are not used for the recommendation
+        engine.
+
+        The recommendation output is based on TF-IDF
+        representation and cosine-similarity ranking.
         """
     )
 
