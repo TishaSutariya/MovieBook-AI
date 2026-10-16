@@ -1,1513 +1,1877 @@
-import sys
+# ============================================================
+# MOVIEBOOK AI
+# FULL-WIDTH POWER BI-INSPIRED DASHBOARD
+# Theme: Dark Teal
+# No Sidebar | Top Navigation | Responsive Layout
+# ============================================================
+
 from pathlib import Path
+import sys
+import warnings
+import html
 
 import pandas as pd
 import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
+
+warnings.filterwarnings("ignore")
 
 # ============================================================
-# PATH SETUP
+# PATH CONFIGURATION
 # ============================================================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
+
+if not (BASE_DIR / "src").exists() and (BASE_DIR.parent / "src").exists():
+    BASE_DIR = BASE_DIR.parent
 
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from src.movie_recommender import MovieRecommender
-from src.book_recommender import BookRecommender
+DATA_DIR = BASE_DIR / "data" / "processed"
 
-
-# ============================================================
-# DATA PATHS
-# ============================================================
-
-MOVIE_DATA_PATH = (
-    BASE_DIR
-    / "data"
-    / "processed"
-    / "movies_cleaned.csv"
-)
-
-BOOK_DATA_PATH = (
-    BASE_DIR
-    / "data"
-    / "processed"
-    / "books_cleaned.csv"
-)
-
+MOVIES_PATH = DATA_DIR / "movies_cleaned.csv"
+BOOKS_PATH = DATA_DIR / "books_cleaned.csv"
 
 # ============================================================
-# PAGE CONFIG
+# RECOMMENDER IMPORTS
+# ============================================================
+
+try:
+    from src.movie_recommender import MovieRecommender
+    MOVIE_IMPORT_ERROR = None
+except Exception as exc:
+    MovieRecommender = None
+    MOVIE_IMPORT_ERROR = str(exc)
+
+try:
+    from src.book_recommender import BookRecommender
+    BOOK_IMPORT_ERROR = None
+except Exception as exc:
+    BookRecommender = None
+    BOOK_IMPORT_ERROR = str(exc)
+
+# ============================================================
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
-    page_title="MovieBook AI",
+    page_title="MovieBook AI | Intelligence Dashboard",
     page_icon="🎬",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
-
 # ============================================================
-# LOAD DATA
-# ============================================================
-
-@st.cache_data
-def load_movie_data():
-    if not MOVIE_DATA_PATH.exists():
-        st.error(
-            f"Movie dataset not found:\n{MOVIE_DATA_PATH}"
-        )
-        st.stop()
-
-    return pd.read_csv(MOVIE_DATA_PATH)
-
-
-@st.cache_data
-def load_book_data():
-    if not BOOK_DATA_PATH.exists():
-        st.error(
-            f"Book dataset not found:\n{BOOK_DATA_PATH}"
-        )
-        st.stop()
-
-    return pd.read_csv(BOOK_DATA_PATH)
-
-
-# ============================================================
-# LOAD MODELS
+# COLOR PALETTE
 # ============================================================
 
-@st.cache_resource
+BG = "#071A1C"
+PANEL = "#102A2C"
+PANEL_HOVER = "#173638"
+ACCENT = "#2DD4BF"
+ACCENT_DARK = "#14B8A6"
+TEXT = "#F1F5F9"
+MUTED = "#94A3B8"
+BORDER = "#244547"
+
+# ============================================================
+# GLOBAL CSS
+# ============================================================
+
+st.markdown(
+    f"""
+    <style>
+    @import url(
+        'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
+    );
+
+    :root {{
+        --bg: {BG};
+        --panel: {PANEL};
+        --accent: {ACCENT};
+        --text: {TEXT};
+        --muted: {MUTED};
+        --border: {BORDER};
+    }}
+
+    html, body, [data-testid="stAppViewContainer"] {{
+        background: {BG} !important;
+        color: {TEXT} !important;
+        font-family: 'Inter', sans-serif !important;
+    }}
+
+    [data-testid="stHeader"] {{
+        background: {BG} !important;
+    }}
+
+    [data-testid="stSidebar"],
+    [data-testid="collapsedControl"] {{
+        display: none !important;
+    }}
+
+    [data-testid="stMain"] {{
+        background: {BG} !important;
+    }}
+
+    .block-container {{
+        max-width: 1800px;
+        padding: 1.4rem 2.2rem 2rem 2.2rem;
+    }}
+
+    h1, h2, h3, h4 {{
+        color: {TEXT} !important;
+        font-family: 'Inter', sans-serif !important;
+    }}
+
+    p, label, li {{
+        color: {MUTED};
+    }}
+
+    /* TOP BRAND HEADER */
+
+    .top-header {{
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        padding: 14px 0 20px 0;
+        border-bottom: 1px solid {BORDER};
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }}
+
+    .brand {{
+        display: flex;
+        align-items: center;
+        gap: 13px;
+    }}
+
+    .brand-icon {{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: rgba(45, 212, 191, 0.12);
+        border: 1px solid rgba(45, 212, 191, 0.3);
+        font-size: 24px;
+    }}
+
+    .brand-name {{
+        color: {TEXT};
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: -0.7px;
+    }}
+
+    .brand-name span {{
+        color: {ACCENT};
+    }}
+
+    .brand-subtitle {{
+        color: {MUTED};
+        font-size: 11px;
+        margin-top: 4px;
+    }}
+
+    .header-status {{
+        color: {ACCENT};
+        background: rgba(45, 212, 191, 0.10);
+        border: 1px solid rgba(45, 212, 191, 0.25);
+        padding: 9px 14px;
+        border-radius: 25px;
+        font-size: 11px;
+        font-weight: 700;
+    }}
+
+    /* PAGE INTRODUCTION */
+
+    .page-heading {{
+        color: {TEXT};
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.8px;
+        margin: 0 0 6px 0;
+    }}
+
+    .page-description {{
+        color: {MUTED};
+        font-size: 13px;
+        line-height: 1.7;
+        margin-bottom: 22px;
+    }}
+
+    .hero {{
+        background:
+            radial-gradient(
+                circle at 90% 10%,
+                rgba(45,212,191,0.12),
+                transparent 35%
+            ),
+            linear-gradient(120deg, #102A2C, #0B2426);
+        border: 1px solid {BORDER};
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 22px;
+    }}
+
+    .hero-title {{
+        font-size: clamp(28px, 4vw, 42px);
+        line-height: 1.2;
+        color: {TEXT};
+        font-weight: 800;
+        letter-spacing: -1px;
+    }}
+
+    .hero-title span {{
+        color: {ACCENT};
+    }}
+
+    .hero-description {{
+        max-width: 800px;
+        color: {MUTED};
+        font-size: 14px;
+        line-height: 1.8;
+        margin-top: 12px;
+    }}
+
+    /* KPI CARDS */
+
+    .metric-card {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 15px;
+        padding: 19px;
+        min-height: 120px;
+        margin-bottom: 12px;
+    }}
+
+    .metric-label {{
+        color: {MUTED};
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }}
+
+    .metric-value {{
+        color: {ACCENT};
+        font-size: 29px;
+        font-weight: 800;
+        margin-top: 13px;
+    }}
+
+    .metric-note {{
+        color: {MUTED};
+        font-size: 11px;
+        margin-top: 5px;
+    }}
+
+    /* SECTIONS */
+
+    .section-heading {{
+        color: {TEXT};
+        font-size: 19px;
+        font-weight: 750;
+        margin-top: 24px;
+        margin-bottom: 5px;
+    }}
+
+    .section-description {{
+        color: {MUTED};
+        font-size: 12px;
+        margin-bottom: 17px;
+    }}
+
+    .content-card {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 14px;
+    }}
+
+    .content-card-title {{
+        color: {TEXT};
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }}
+
+    .content-card-description {{
+        color: {MUTED};
+        font-size: 12px;
+        line-height: 1.8;
+    }}
+
+    .badge {{
+        display: inline-block;
+        color: {ACCENT};
+        background: rgba(45, 212, 191, 0.1);
+        border: 1px solid rgba(45, 212, 191, 0.22);
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        margin: 3px;
+    }}
+
+    .insight-box {{
+        background: #0C2527;
+        border-left: 4px solid {ACCENT};
+        border-radius: 8px;
+        padding: 16px;
+        color: {MUTED};
+        font-size: 13px;
+        line-height: 1.8;
+        margin-bottom: 15px;
+    }}
+
+    /* TOP NAVIGATION BUTTONS */
+
+    div.stButton > button {{
+        background: {PANEL};
+        color: {TEXT} !important;
+        border: 1px solid {BORDER};
+        border-radius: 10px;
+        min-height: 43px;
+        font-size: 12px;
+        font-weight: 700;
+        transition: all 0.2s ease;
+    }}
+
+    div.stButton > button:hover {{
+        background: {PANEL_HOVER};
+        color: {ACCENT} !important;
+        border-color: {ACCENT};
+    }}
+
+    div.stButton > button:focus:not(:active) {{
+        border-color: {ACCENT};
+        color: {ACCENT} !important;
+    }}
+
+    /* INPUTS */
+
+    div[data-baseweb="select"] > div {{
+        background: {PANEL} !important;
+        border-color: {BORDER} !important;
+        color: {TEXT} !important;
+    }}
+
+    div[data-baseweb="select"] * {{
+        color: {TEXT} !important;
+    }}
+
+    .stTextInput input,
+    .stNumberInput input {{
+        background: {PANEL} !important;
+        color: {TEXT} !important;
+        border-color: {BORDER} !important;
+    }}
+
+    /* DATAFRAMES */
+
+    [data-testid="stDataFrame"] {{
+        border: 1px solid {BORDER};
+        border-radius: 12px;
+        overflow: hidden;
+    }}
+
+    /* METRICS */
+
+    div[data-testid="stMetric"] {{
+        background: {PANEL};
+        border: 1px solid {BORDER};
+        border-radius: 13px;
+        padding: 16px;
+    }}
+
+    div[data-testid="stMetricLabel"] {{
+        color: {MUTED};
+    }}
+
+    div[data-testid="stMetricValue"] {{
+        color: {ACCENT};
+    }}
+
+    /* ALERTS */
+
+    div[data-testid="stAlert"] {{
+        border-radius: 12px;
+    }}
+
+    hr {{
+        border-color: {BORDER};
+    }}
+
+    /* FOOTER */
+
+    .dashboard-footer {{
+        border-top: 1px solid {BORDER};
+        margin-top: 35px;
+        padding: 20px 0 5px 0;
+        text-align: center;
+        color: {MUTED};
+        font-size: 11px;
+        line-height: 2;
+    }}
+
+    @media (max-width: 768px) {{
+        .block-container {{
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }}
+
+        .hero {{
+            padding: 22px;
+        }}
+
+        .metric-value {{
+            font-size: 23px;
+        }}
+
+        .brand-name {{
+            font-size: 20px;
+        }}
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ============================================================
+# DATA LOADING
+# ============================================================
+
+@st.cache_data(show_spinner=False)
+def load_dataset(path_string):
+    path = Path(path_string)
+
+    if not path.exists():
+        return pd.DataFrame()
+
+    try:
+        return pd.read_csv(path)
+    except Exception as exc:
+        print(f"Could not load {path}: {exc}")
+        return pd.DataFrame()
+
+
+movies_df = load_dataset(str(MOVIES_PATH))
+books_df = load_dataset(str(BOOKS_PATH))
+
+
+# ============================================================
+# MODEL LOADING
+# ============================================================
+
+@st.cache_resource(show_spinner=False)
 def load_movie_model():
-    return MovieRecommender()
+    if MovieRecommender is None:
+        return None
+
+    try:
+        return MovieRecommender()
+    except Exception as exc:
+        print(f"Movie model initialization failed: {exc}")
+        return None
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def load_book_model():
-    return BookRecommender()
+    if BookRecommender is None:
+        return None
+
+    try:
+        return BookRecommender()
+    except Exception as exc:
+        print(f"Book model initialization failed: {exc}")
+        return None
 
 
-movies = load_movie_data()
-books = load_book_data()
-
-
-# ============================================================
-# SIDEBAR
-# ============================================================
-
-st.sidebar.title("🎬📚 MovieBook AI")
-
-st.sidebar.caption(
-    "Movie + Book Recommendation System"
-)
-
-page = st.sidebar.radio(
-    "Navigation",
-    [
-        "🏠 Home",
-        "🎬 Bollywood Movie Recommendation",
-        "🎬 All Movie Recommendation",
-        "📚 Book Recommendation",
-        "📊 Movie Analytics",
-        "📖 Book Analytics",
-        "🤖 AI / NLP Insights"
-    ]
-)
-
-st.sidebar.markdown("---")
-
-st.sidebar.metric(
-    "🎬 Movies",
-    f"{len(movies):,}"
-)
-
-st.sidebar.metric(
-    "📚 Books",
-    f"{len(books):,}"
-)
+movie_model = load_movie_model()
+book_model = load_book_model()
 
 
 # ============================================================
-# HOME
+# HELPER FUNCTIONS
 # ============================================================
 
-if page == "🏠 Home":
+def find_column(df, candidates):
+    if df.empty:
+        return None
 
-    st.title("🎬📚 MovieBook AI")
+    column_map = {
+        str(col).strip().lower(): col
+        for col in df.columns
+    }
 
-    st.subheader(
-        "Movie and Book Recommendation System"
+    for candidate in candidates:
+        if candidate.lower() in column_map:
+            return column_map[candidate.lower()]
+
+    return None
+
+
+def get_title_column(df, kind):
+    if kind == "movie":
+        candidates = [
+            "title",
+            "movie_title",
+            "original_title",
+            "name",
+        ]
+    else:
+        candidates = [
+            "title",
+            "book_title",
+            "name",
+        ]
+
+    return find_column(df, candidates)
+
+
+def get_creator_column(df, kind):
+    if kind == "movie":
+        candidates = [
+            "director",
+            "directors",
+            "director_name",
+        ]
+    else:
+        candidates = [
+            "authors",
+            "author",
+            "book_author",
+        ]
+
+    return find_column(df, candidates)
+
+
+def get_text(value, fallback="Not available"):
+    if value is None:
+        return fallback
+
+    try:
+        if pd.isna(value):
+            return fallback
+    except (TypeError, ValueError):
+        pass
+
+    value = str(value).strip()
+
+    if not value or value.lower() in {"nan", "none", "null"}:
+        return fallback
+
+    return value
+
+
+def safe_html(value):
+    return html.escape(str(value))
+
+
+def section_heading(title, description=""):
+    st.markdown(
+        f'<div class="section-heading">{safe_html(title)}</div>',
+        unsafe_allow_html=True,
     )
 
-    st.write(
-        """
-        MovieBook AI is a content-based recommendation system
-        that uses Natural Language Processing and Machine
-        Learning techniques to recommend similar movies and books.
-        """
+    if description:
+        st.markdown(
+            f'<div class="section-description">'
+            f'{safe_html(description)}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def metric_card(label, value, note=""):
+    st.markdown(
+        f"""
+        <div class="metric-card">
+            <div class="metric-label">{safe_html(label)}</div>
+            <div class="metric-value">{safe_html(value)}</div>
+            <div class="metric-note">{safe_html(note)}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    st.markdown("---")
 
-    st.header("📊 Dataset Overview")
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.metric(
-            "🎬 Movies",
-            f"{len(movies):,}"
-        )
-
-    with col2:
-        st.metric(
-            "📚 Books",
-            f"{len(books):,}"
-        )
-
-    with col3:
-        if "source" in movies.columns:
-            netflix_count = (
-                movies["source"]
-                .astype(str)
-                .str.lower()
-                .eq("netflix")
-                .sum()
-            )
-        else:
-            netflix_count = 0
-
-        st.metric(
-            "Netflix",
-            f"{netflix_count:,}"
-        )
-
-    with col4:
-        if "is_indian" in movies.columns:
-            indian_count = (
-                movies["is_indian"]
-                .fillna(False)
-                .astype(bool)
-                .sum()
-            )
-        else:
-            indian_count = 0
-
-        st.metric(
-            "🇮🇳 Indian Movies",
-            f"{indian_count:,}"
-        )
-
-    st.markdown("---")
-
-    # ========================================================
-    # HOW IT WORKS
-    # ========================================================
-
-    st.header("🧠 How MovieBook AI Works")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown(
-            """
-            ### 📂 1. Data Processing
-
-            Movie and book datasets are cleaned
-            and prepared for recommendation.
-            """
-        )
-
-    with col2:
-        st.markdown(
-            """
-            ### 🧠 2. NLP & Features
-
-            Movie and book text is converted
-            into TF-IDF numerical features.
-            """
-        )
-
-    with col3:
-        st.markdown(
-            """
-            ### 🎯 3. Similarity Matching
-
-            Cosine similarity compares content
-            and ranks similar items.
-            """
-        )
-
-    st.markdown("---")
-
-    st.header("🇮🇳 Indian Movie Recommendation")
-
-    st.write(
-        """
-        Choose an Indian movie and discover other
-        Indian movies with similar content.
-        """
+def style_chart(fig, height=350):
+    fig.update_layout(
+        height=height,
+        paper_bgcolor=PANEL,
+        plot_bgcolor=PANEL,
+        font=dict(
+            family="Inter, sans-serif",
+            color=TEXT,
+            size=12,
+        ),
+        margin=dict(l=20, r=20, t=55, b=20),
+        title_font=dict(size=15, color=TEXT),
+        legend=dict(
+            bgcolor="rgba(0,0,0,0)",
+            font=dict(color=MUTED),
+        ),
     )
+
+    fig.update_xaxes(
+        gridcolor=BORDER,
+        zerolinecolor=BORDER,
+        tickfont=dict(color=MUTED),
+        title_font=dict(color=MUTED),
+    )
+
+    fig.update_yaxes(
+        gridcolor=BORDER,
+        zerolinecolor=BORDER,
+        tickfont=dict(color=MUTED),
+        title_font=dict(color=MUTED),
+    )
+
+    return fig
+
+
+def show_missing_dataset(name, path):
+    st.error(f"The {name} dataset could not be loaded.")
+
+    st.code(str(path))
 
     st.info(
-        """
-        Similarity percentage is a converted cosine-similarity
-        score. It represents textual/content similarity and
-        is not a probability or movie rating.
-        """
+        "Check the CSV filename and project folder structure. "
+        "The dashboard expects the processed CSV inside "
+        "data/processed/."
     )
 
 
-# ============================================================
-# INDIAN MOVIE RECOMMENDATION
-# ============================================================
-
-elif page == "🎬 Bollywood Movie Recommendation":
-
-    st.title(
-        "🇮🇳 Bollywood Movie Recommendation"
-    )
-
-    st.write(
-        """
-        This section recommends only Indian movies from
-        the processed dataset.
-        """
-    )
-
-    if "is_indian" not in movies.columns:
-        st.error(
-            "Indian movie information is missing. "
-            "Run the preprocessing script again."
+def run_recommendation(model, title, count):
+    if model is None:
+        raise RuntimeError(
+            "The recommendation model could not be initialized. "
+            "Check the model import and constructor."
         )
-        st.stop()
 
-    indian_movies = movies[
-        movies["is_indian"]
-        .fillna(False)
-        .astype(bool)
-    ].copy()
+    if not hasattr(model, "recommend"):
+        raise AttributeError(
+            "The recommender class does not provide a recommend() method."
+        )
 
-    if indian_movies.empty:
+    try:
+        result = model.recommend(title, n=count)
+    except TypeError:
+        result = model.recommend(title)
+
+    if result is None:
+        return pd.DataFrame()
+
+    if isinstance(result, pd.DataFrame):
+        return result.copy()
+
+    if isinstance(result, pd.Series):
+        return result.to_frame().T
+
+    return pd.DataFrame(result)
+
+
+def show_recommendations(results, kind):
+    if results.empty:
+        st.info(
+            "No recommendations were returned. Try another title."
+        )
+        return
+
+    title_col = get_title_column(results, kind)
+
+    if title_col is None:
         st.warning(
-            "No Indian movies were detected."
+            "The recommendation results have no recognized title "
+            "column. Showing the raw results instead."
         )
-        st.stop()
 
-    st.metric(
-        "🇮🇳 Indian Movies Available",
-        f"{len(indian_movies):,}"
+        st.dataframe(
+            results,
+            use_container_width=True,
+            hide_index=True,
+        )
+        return
+
+    creator_col = get_creator_column(results, kind)
+
+    category_col = find_column(
+        results,
+        ["genre", "genres", "category", "categories", "subject"],
     )
 
-    st.markdown("---")
-
-    movie_model = load_movie_model()
-
-    indian_titles = sorted(
-        indian_movies["title"]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
+    description_col = find_column(
+        results,
+        ["overview", "description", "summary", "plot"],
     )
 
-    selected_movie = st.selectbox(
-        "🎬 Select Bollywood / Indian Movie",
-        indian_titles
+    score_col = find_column(
+        results,
+        ["similarity", "similarity_score", "score", "confidence"],
     )
 
-    number_of_recommendations = st.slider(
-        "Number of Recommendations",
-        5,
-        15,
-        10,
-        key="bollywood_slider"
-    )
+    for start in range(0, len(results), 3):
+        columns = st.columns(3)
 
-    if st.button(
-        "🇮🇳 Find Similar Bollywood Movies",
-        type="primary"
-    ):
+        chunk = results.iloc[start:start + 3]
 
-        with st.spinner(
-            "Finding similar Indian movies..."
-        ):
+        for index, (_, row) in enumerate(chunk.iterrows()):
+            with columns[index]:
+                title = get_text(row.get(title_col))
 
-            # Get a larger pool first.
-            recommendations = movie_model.recommend(
-                selected_movie,
-                n=100
-            )
-
-        if recommendations.empty:
-
-            st.warning(
-                "No recommendations found."
-            )
-
-        else:
-
-            # ------------------------------------------------
-            # FILTER RECOMMENDATIONS TO INDIAN MOVIES
-            # ------------------------------------------------
-
-            indian_titles_set = set(
-                indian_movies["title"]
-                .astype(str)
-                .str.lower()
-            )
-
-            recommendations = recommendations[
-                recommendations["title"]
-                .astype(str)
-                .str.lower()
-                .isin(indian_titles_set)
-            ]
-
-            recommendations = (
-                recommendations
-                .head(number_of_recommendations)
-            )
-
-            if recommendations.empty:
-
-                st.warning(
-                    "No other Indian movies were found "
-                    "for this selection."
+                creator = (
+                    get_text(row.get(creator_col))
+                    if creator_col
+                    else "Not available"
                 )
 
-            else:
-
-                st.success(
-                    f"Movies similar to: {selected_movie}"
+                category = (
+                    get_text(row.get(category_col))
+                    if category_col
+                    else "Not specified"
                 )
 
-                st.markdown("---")
+                description = (
+                    get_text(row.get(description_col))
+                    if description_col
+                    else "Explore this recommendation."
+                )
 
-                for rank, (_, row) in enumerate(
-                    recommendations.iterrows(),
-                    start=1
-                ):
+                description = (
+                    description[:200] + "..."
+                    if len(description) > 200
+                    else description
+                )
 
-                    col1, col2 = st.columns([5, 1])
+                st.markdown(
+                    f"""
+                    <div class="content-card">
+                        <div class="content-card-title">
+                            {safe_html(title)}
+                        </div>
+                        <div class="content-card-description">
+                            {"Director" if kind == "movie" else "Author"}:
+                            {safe_html(creator)}
+                        </div>
+                        <div style="margin-top:10px;">
+                            <span class="badge">
+                                {safe_html(category)}
+                            </span>
+                        </div>
+                        <div class="content-card-description"
+                             style="margin-top:12px;">
+                            {safe_html(description)}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-                    with col1:
+                if score_col:
+                    score = pd.to_numeric(
+                        pd.Series([row.get(score_col)]),
+                        errors="coerce",
+                    ).iloc[0]
 
-                        st.subheader(
-                            f"#{rank} 🎬 {row['title']}"
+                    if pd.notna(score):
+                        st.caption(
+                            f"Similarity score: {score:.3f}"
                         )
-
-                        genre = row.get(
-                            "genre",
-                            "Not available"
-                        )
-
-                        if pd.isna(genre):
-                            genre = "Not available"
-
-                        st.write(
-                            f"**Genre:** {genre}"
-                        )
-
-                        director = row.get(
-                            "director",
-                            "Not available"
-                        )
-
-                        if (
-                            pd.isna(director)
-                            or not str(director).strip()
-                        ):
-                            director = "Not available"
-
-                        st.write(
-                            f"**Director:** {director}"
-                        )
-
-                        year = row.get(
-                            "year",
-                            None
-                        )
-
-                        if pd.notna(year):
-
-                            try:
-                                year = int(
-                                    float(year)
-                                )
-                            except (ValueError, TypeError):
-                                pass
-
-                        else:
-                            year = "N/A"
-
-                        st.write(
-                            f"**Year:** {year}"
-                        )
-
-                    with col2:
-
-                        similarity = float(
-                            row.get(
-                                "similarity",
-                                0
-                            )
-                        )
-
-                        similarity_percentage = (
-                            similarity * 100
-                        )
-
-                        st.metric(
-                            "Similarity",
-                            f"{similarity_percentage:.1f}%"
-                        )
-
-                    st.divider()
 
 
 # ============================================================
-# ALL MOVIE RECOMMENDATION
+# TOP BRAND HEADER
 # ============================================================
 
-elif page == "🎬 All Movie Recommendation":
+st.markdown(
+    f"""
+    <div class="top-header">
+        <div class="brand">
+            <div class="brand-icon">🎬</div>
+            <div>
+                <div class="brand-name">
+                    MovieBook <span>AI</span>
+                </div>
+                <div class="brand-subtitle">
+                    INTELLIGENT CONTENT DISCOVERY PLATFORM
+                </div>
+            </div>
+        </div>
+        <div class="header-status">
+            ● RECOMMENDATION SYSTEM
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-    st.title(
-        "🎬 All Movie Recommendation"
-    )
 
-    st.write(
-        """
-        Search the complete movie dataset and find
-        content-based recommendations.
-        """
-    )
+# ============================================================
+# TOP NAVIGATION — NO SIDEBAR
+# ============================================================
 
-    movie_model = load_movie_model()
+PAGES = [
+    "Overview",
+    "Movies",
+    "Books",
+    "Movie Analytics",
+    "Book Analytics",
+    "AI / NLP",
+    "Dataset Explorer",
+]
 
-    movie_titles = sorted(
-        movies["title"]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
+if "active_page" not in st.session_state:
+    st.session_state["active_page"] = "Overview"
 
-    selected_movie = st.selectbox(
-        "Select Movie",
-        movie_titles
-    )
+navigation_columns = st.columns(len(PAGES))
 
-    number_of_recommendations = st.slider(
-        "Number of Recommendations",
-        5,
-        15,
-        10,
-        key="all_movie_slider"
-    )
+for index, page_name in enumerate(PAGES):
+    with navigation_columns[index]:
+        is_active = st.session_state["active_page"] == page_name
 
-    if st.button(
-        "🔍 Recommend Movies",
-        type="primary"
-    ):
+        button_label = (
+            f"● {page_name}"
+            if is_active
+            else page_name
+        )
 
-        with st.spinner(
-            "Finding similar movies..."
+        if st.button(
+            button_label,
+            key=f"nav_{index}",
+            use_container_width=True,
         ):
+            st.session_state["active_page"] = page_name
+            st.rerun()
 
-            recommendations = movie_model.recommend(
-                selected_movie,
-                n=number_of_recommendations
-            )
+page = st.session_state["active_page"]
 
-        if recommendations.empty:
+st.markdown("---")
 
-            st.warning(
-                "No recommendations found."
-            )
+
+# ============================================================
+# OVERVIEW PAGE
+# ============================================================
+
+if page == "Overview":
+
+    st.markdown(
+        """
+        <div class="hero">
+            <div class="hero-title">
+                Discover something <span>new.</span>
+            </div>
+            <div class="hero-description">
+                One platform for discovering movies and books.
+                Explore content-based recommendations, analyze your
+                datasets, and learn how machine learning and NLP
+                support personalized content discovery.
+            </div>
+            <div style="margin-top:18px;">
+                <span class="badge">MOVIES</span>
+                <span class="badge">BOOKS</span>
+                <span class="badge">MACHINE LEARNING</span>
+                <span class="badge">NLP</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    movie_title_col = get_title_column(movies_df, "movie")
+    book_title_col = get_title_column(books_df, "book")
+
+    unique_movies = (
+        movies_df[movie_title_col].nunique()
+        if movie_title_col
+        else 0
+    )
+
+    unique_books = (
+        books_df[book_title_col].nunique()
+        if book_title_col
+        else 0
+    )
+
+    k1, k2, k3, k4 = st.columns(4)
+
+    with k1:
+        metric_card("Movie Records", f"{len(movies_df):,}")
+
+    with k2:
+        metric_card("Book Records", f"{len(books_df):,}")
+
+    with k3:
+        metric_card("Unique Movies", f"{unique_movies:,}")
+
+    with k4:
+        metric_card("Unique Books", f"{unique_books:,}")
+
+    section_heading(
+        "Platform Overview",
+        "Your content discovery platform at a glance.",
+    )
+
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown(
+            """
+            <div class="content-card">
+                <div class="content-card-title">
+                    🎬 Movie Recommendation Engine
+                </div>
+                <div class="content-card-description">
+                    Explore movies similar to a selected title using
+                    your existing recommendation model.
+                </div>
+                <br>
+                <span class="badge">CONTENT-BASED</span>
+                <span class="badge">MOVIE DISCOVERY</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if st.button(
+            "Explore Movies →",
+            key="overview_movies",
+            use_container_width=True,
+        ):
+            st.session_state["active_page"] = "Movies"
+            st.rerun()
+
+    with right:
+        st.markdown(
+            """
+            <div class="content-card">
+                <div class="content-card-title">
+                    📚 Book Recommendation Engine
+                </div>
+                <div class="content-card-description">
+                    Discover books related to a selected title and
+                    explore the available book collection.
+                </div>
+                <br>
+                <span class="badge">BOOK DISCOVERY</span>
+                <span class="badge">NLP CONCEPTS</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        if st.button(
+            "Explore Books →",
+            key="overview_books",
+            use_container_width=True,
+        ):
+            st.session_state["active_page"] = "Books"
+            st.rerun()
+
+    section_heading(
+        "Dataset Distribution",
+        "Number of records available in each collection.",
+    )
+
+    distribution = pd.DataFrame(
+        {
+            "Content": ["Movies", "Books"],
+            "Records": [len(movies_df), len(books_df)],
+        }
+    )
+
+    fig = px.bar(
+        distribution,
+        x="Content",
+        y="Records",
+        color="Content",
+        color_discrete_sequence=[ACCENT, "#5EEAD4"],
+        title="Movie and Book Dataset Size",
+        text="Records",
+    )
+
+    fig.update_traces(textposition="outside")
+
+    st.plotly_chart(
+        style_chart(fig),
+        use_container_width=True,
+    )
+
+    if movies_df.empty:
+        show_missing_dataset("movie", MOVIES_PATH)
+
+    if books_df.empty:
+        show_missing_dataset("book", BOOKS_PATH)
+
+
+# ============================================================
+# MOVIE RECOMMENDATIONS PAGE
+# ============================================================
+
+elif page == "Movies":
+
+    st.markdown(
+        """
+        <div class="page-heading">Movie Discovery</div>
+        <div class="page-description">
+            Select a movie and discover similar titles.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if movies_df.empty:
+        show_missing_dataset("movie", MOVIES_PATH)
+
+    else:
+        title_col = get_title_column(movies_df, "movie")
+
+        if title_col is None:
+            st.error("A movie title column was not found.")
 
         else:
+            titles = sorted(
+                movies_df[title_col]
+                .dropna()
+                .astype(str)
+                .str.strip()
+                .loc[lambda x: x.ne("")]
+                .unique()
+                .tolist()
+            )
 
-            for rank, (_, row) in enumerate(
-                recommendations.iterrows(),
-                start=1
+            c1, c2 = st.columns([3, 1])
+
+            with c1:
+                selected_title = st.selectbox(
+                    "Select a movie",
+                    titles,
+                    key="movie_selected_title",
+                )
+
+            with c2:
+                count = st.selectbox(
+                    "Recommendations",
+                    [3, 6, 9, 12],
+                    index=1,
+                    key="movie_count",
+                )
+
+            if st.button(
+                "✨ Find Similar Movies",
+                key="movie_recommend_button",
+                use_container_width=True,
             ):
-
-                col1, col2 = st.columns([5, 1])
-
-                with col1:
-
-                    st.subheader(
-                        f"#{rank} 🎬 {row['title']}"
-                    )
-
-                    st.write(
-                        f"**Genre:** "
-                        f"{row.get('genre', 'Not available')}"
-                    )
-
-                    st.write(
-                        f"**Director:** "
-                        f"{row.get('director', 'Not available')}"
-                    )
-
-                    st.write(
-                        f"**Year:** "
-                        f"{row.get('year', 'N/A')}"
-                    )
-
-                    st.caption(
-                        f"Source: "
-                        f"{row.get('source', 'Unknown')}"
-                    )
-
-                with col2:
-
-                    similarity = float(
-                        row.get(
-                            "similarity",
-                            0
-                        )
-                    )
-
-                    st.metric(
-                        "Similarity",
-                        f"{similarity * 100:.1f}%"
-                    )
-
-                st.divider()
-
-
-# ============================================================
-# BOOK RECOMMENDATION
-# ============================================================
-
-elif page == "📚 Book Recommendation":
-
-    st.title(
-        "📚 Book Recommendation"
-    )
-
-    st.write(
-        """
-        Select a book to discover similar books.
-        Recommendations are organized into different
-        content categories.
-        """
-    )
-
-    book_model = load_book_model()
-
-    book_titles = sorted(
-        books["title"]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-
-    selected_book = st.selectbox(
-        "📚 Select Book",
-        book_titles
-    )
-
-    number_of_recommendations = st.slider(
-        "Number of Recommendations",
-        5,
-        15,
-        10,
-        key="book_slider"
-    )
-
-    if st.button(
-        "🔍 Find Similar Books",
-        type="primary"
-    ):
-
-        with st.spinner(
-            "Finding similar books..."
-        ):
-
-            recommendations = book_model.recommend(
-                selected_book,
-                n=number_of_recommendations
-            )
-
-        if recommendations.empty:
-
-            st.warning(
-                "No recommendations found."
-            )
-
-        else:
-
-            # =================================================
-            # OVERALL SIMILARITY
-            # =================================================
-
-            st.header(
-                "⭐ Overall Similar Books"
-            )
-
-            st.caption(
-                "Ranked using the complete TF-IDF content representation."
-            )
-
-            for rank, (_, row) in enumerate(
-                recommendations.iterrows(),
-                start=1
-            ):
-
-                col1, col2 = st.columns([5, 1])
-
-                with col1:
-
-                    st.subheader(
-                        f"#{rank} 📚 {row['title']}"
-                    )
-
-                    st.write(
-                        f"**Author:** "
-                        f"{row.get('authors', 'Not available')}"
-                    )
-
-                    st.write(
-                        f"**Category:** "
-                        f"{row.get('categories', 'Not available')}"
-                    )
-
-                with col2:
-
-                    similarity = float(
-                        row.get(
-                            "similarity",
-                            0
-                        )
-                    )
-
-                    st.metric(
-                        "Similarity",
-                        f"{similarity * 100:.1f}%"
-                    )
-
-                st.divider()
-
-            # =================================================
-            # CATEGORY-BASED
-            # =================================================
-
-            st.header(
-                "📖 Similar by Category"
-            )
-
-            selected_row = books[
-                books["title"]
-                .astype(str)
-                .str.lower()
-                == selected_book.lower()
-            ]
-
-            if not selected_row.empty:
-
-                selected_categories = str(
-                    selected_row.iloc[0].get(
-                        "categories",
-                        ""
-                    )
-                ).lower()
-
-                if selected_categories.strip():
-
-                    category_mask = (
-                        books["categories"]
-                        .fillna("")
-                        .astype(str)
-                        .str.lower()
-                        .str.contains(
-                            selected_categories,
-                            regex=False,
-                            na=False
-                        )
-                    )
-
-                    category_books = books[
-                        category_mask
-                    ].copy()
-
-                    category_books = category_books[
-                        category_books["title"]
-                        .astype(str)
-                        .str.lower()
-                        != selected_book.lower()
-                    ]
-
-                    category_books = (
-                        category_books
-                        .head(number_of_recommendations)
-                    )
-
-                    if not category_books.empty:
-
-                        st.dataframe(
-                            category_books[
-                                [
-                                    "title",
-                                    "authors",
-                                    "categories",
-                                    "average_rating"
-                                ]
-                            ],
-                            use_container_width=True,
-                            hide_index=True
+                try:
+                    with st.spinner("Finding similar movies..."):
+                        results = run_recommendation(
+                            movie_model,
+                            selected_title,
+                            count,
                         )
 
-                    else:
+                    st.session_state["movie_results"] = results
+                    st.session_state["movie_results_for"] = selected_title
 
-                        st.info(
-                            "No category-based matches found."
-                        )
+                except Exception as exc:
+                    st.error("Movie recommendation failed.")
 
-                else:
-
-                    st.info(
-                        "Category information is not available."
-                    )
-
-            # =================================================
-            # AUTHOR-BASED
-            # =================================================
-
-            st.header(
-                "✍️ Similar by Author"
-            )
-
-            selected_author = ""
-
-            if not selected_row.empty:
-
-                selected_author = str(
-                    selected_row.iloc[0].get(
-                        "authors",
-                        ""
-                    )
-                ).strip()
-
-            if selected_author:
-
-                author_mask = (
-                    books["authors"]
-                    .fillna("")
-                    .astype(str)
-                    .str.lower()
-                    .str.contains(
-                        selected_author.lower(),
-                        regex=False,
-                        na=False
-                    )
-                )
-
-                author_books = books[
-                    author_mask
-                ].copy()
-
-                author_books = author_books[
-                    author_books["title"]
-                    .astype(str)
-                    .str.lower()
-                    != selected_book.lower()
-                ]
-
-                author_books = (
-                    author_books
-                    .head(number_of_recommendations)
-                )
-
-                if not author_books.empty:
-
-                    st.dataframe(
-                        author_books[
-                            [
-                                "title",
-                                "authors",
-                                "categories",
-                                "average_rating"
-                            ]
-                        ],
-                        use_container_width=True,
-                        hide_index=True
-                    )
-
-                else:
-
-                    st.info(
-                        "No other books by the same author were found."
-                    )
-
-            else:
-
-                st.info(
-                    "Author information is not available."
-                )
-
-            # =================================================
-            # RATING / POPULARITY
-            # =================================================
-
-            st.header(
-                "⭐ Highly Rated Related Books"
-            )
+                    with st.expander("Technical error"):
+                        st.code(str(exc))
 
             if (
-                "ratings_count" in books.columns
-                and "average_rating" in books.columns
+                "movie_results" in st.session_state
+                and st.session_state.get("movie_results_for")
+                == selected_title
             ):
-
-                popular_books = books[
-                    [
-                        "title",
-                        "authors",
-                        "categories",
-                        "average_rating",
-                        "ratings_count"
-                    ]
-                ].copy()
-
-                popular_books["average_rating"] = pd.to_numeric(
-                    popular_books["average_rating"],
-                    errors="coerce"
+                section_heading(
+                    "Recommended Movies",
+                    f"Recommendations related to {selected_title}.",
                 )
 
-                popular_books["ratings_count"] = pd.to_numeric(
-                    popular_books["ratings_count"],
-                    errors="coerce"
+                show_recommendations(
+                    st.session_state["movie_results"],
+                    "movie",
                 )
 
-                popular_books = (
-                    popular_books[
-                        popular_books["title"]
-                        .astype(str)
-                        .str.lower()
-                        != selected_book.lower()
-                    ]
-                    .sort_values(
-                        [
-                            "average_rating",
-                            "ratings_count"
-                        ],
-                        ascending=False
+            with st.expander("View selected movie details"):
+                details = movies_df[
+                    movies_df[title_col].astype(str) == selected_title
+                ]
+
+                if not details.empty:
+                    st.dataframe(
+                        details.head(1),
+                        use_container_width=True,
+                        hide_index=True,
                     )
-                    .head(
-                        number_of_recommendations
-                    )
-                )
-
-                st.dataframe(
-                    popular_books,
-                    use_container_width=True,
-                    hide_index=True
-                )
 
 
 # ============================================================
-# MOVIE ANALYTICS
+# BOOK RECOMMENDATIONS PAGE
 # ============================================================
 
-elif page == "📊 Movie Analytics":
+elif page == "Books":
 
-    st.title(
-        "📊 Movie Analytics"
+    st.markdown(
+        """
+        <div class="page-heading">Book Discovery</div>
+        <div class="page-description">
+            Explore the book collection and find similar titles.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    col1, col2, col3, col4 = st.columns(4)
+    if books_df.empty:
+        show_missing_dataset("book", BOOKS_PATH)
 
-    with col1:
-        st.metric(
-            "Total Movies",
-            f"{len(movies):,}"
-        )
+    else:
+        title_col = get_title_column(books_df, "book")
 
-    with col2:
-
-        if "is_indian" in movies.columns:
-
-            indian_count = (
-                movies["is_indian"]
-                .fillna(False)
-                .astype(bool)
-                .sum()
-            )
+        if title_col is None:
+            st.error("A book title column was not found.")
 
         else:
-            indian_count = 0
-
-        st.metric(
-            "🇮🇳 Indian Movies",
-            f"{indian_count:,}"
-        )
-
-    with col3:
-
-        if "source" in movies.columns:
-
-            netflix_count = (
-                movies["source"]
+            titles = sorted(
+                books_df[title_col]
+                .dropna()
                 .astype(str)
-                .str.lower()
-                .eq("netflix")
-                .sum()
+                .str.strip()
+                .loc[lambda x: x.ne("")]
+                .unique()
+                .tolist()
             )
 
-        else:
-            netflix_count = 0
+            c1, c2 = st.columns([3, 1])
 
-        st.metric(
-            "Netflix",
-            f"{netflix_count:,}"
-        )
+            with c1:
+                selected_title = st.selectbox(
+                    "Select a book",
+                    titles,
+                    key="book_selected_title",
+                )
 
-    with col4:
+            with c2:
+                count = st.selectbox(
+                    "Recommendations",
+                    [3, 6, 9, 12],
+                    index=1,
+                    key="book_count",
+                )
 
-        if "year" in movies.columns:
+            if st.button(
+                "✨ Find Similar Books",
+                key="book_recommend_button",
+                use_container_width=True,
+            ):
+                try:
+                    with st.spinner("Finding similar books..."):
+                        results = run_recommendation(
+                            book_model,
+                            selected_title,
+                            count,
+                        )
 
-            release_years = (
-                movies["year"].nunique()
-            )
+                    st.session_state["book_results"] = results
+                    st.session_state["book_results_for"] = selected_title
 
-        else:
-            release_years = 0
+                except Exception as exc:
+                    st.error("Book recommendation failed.")
 
-        st.metric(
-            "Release Years",
-            f"{release_years:,}"
-        )
+                    with st.expander("Technical error"):
+                        st.code(str(exc))
 
-    st.markdown("---")
+            if (
+                "book_results" in st.session_state
+                and st.session_state.get("book_results_for")
+                == selected_title
+            ):
+                section_heading(
+                    "Recommended Books",
+                    f"Recommendations related to {selected_title}.",
+                )
 
-    # --------------------------------------------------------
-    # SOURCE
-    # --------------------------------------------------------
+                show_recommendations(
+                    st.session_state["book_results"],
+                    "book",
+                )
 
-    st.header(
-        "🎞️ Movies by Source"
+            with st.expander("View selected book details"):
+                details = books_df[
+                    books_df[title_col].astype(str) == selected_title
+                ]
+
+                if not details.empty:
+                    st.dataframe(
+                        details.head(1),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+
+# ============================================================
+# MOVIE ANALYTICS PAGE
+# ============================================================
+
+elif page == "Movie Analytics":
+
+    st.markdown(
+        """
+        <div class="page-heading">Movie Analytics</div>
+        <div class="page-description">
+            Analyze movie records, genres, years, and ratings where available.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    if "source" in movies.columns:
+    if movies_df.empty:
+        show_missing_dataset("movie", MOVIES_PATH)
 
-        st.bar_chart(
-            movies["source"].value_counts()
+    else:
+        genre_col = find_column(
+            movies_df,
+            ["genre", "genres", "listed_in", "category"],
         )
 
-    # --------------------------------------------------------
-    # INDIAN VS OTHER
-    # --------------------------------------------------------
-
-    if "is_indian" in movies.columns:
-
-        st.header(
-            "🇮🇳 Indian vs Other Movies"
+        year_col = find_column(
+            movies_df,
+            ["release_year", "year", "release_date"],
         )
 
-        indian_counts = pd.Series(
-            {
-                "Indian Movies": int(
-                    movies["is_indian"]
-                    .fillna(False)
-                    .astype(bool)
-                    .sum()
-                ),
-                "Other Movies": int(
-                    (
-                        ~movies["is_indian"]
-                        .fillna(False)
-                        .astype(bool)
-                    ).sum()
+        rating_col = find_column(
+            movies_df,
+            ["rating", "vote_average", "imdb_rating", "score"],
+        )
+
+        c1, c2, c3, c4 = st.columns(4)
+
+        with c1:
+            metric_card("Total Records", f"{len(movies_df):,}")
+
+        with c2:
+            metric_card("Dataset Columns", str(len(movies_df.columns)))
+
+        with c3:
+            metric_card(
+                "Missing Cells",
+                f"{int(movies_df.isna().sum().sum()):,}",
+            )
+
+        with c4:
+            metric_card(
+                "Duplicate Rows",
+                f"{int(movies_df.duplicated().sum()):,}",
+            )
+
+        left, right = st.columns(2)
+
+        with left:
+            if genre_col:
+                genres = (
+                    movies_df[genre_col]
+                    .dropna()
+                    .astype(str)
+                    .str.split(r",|;|\|")
+                    .explode()
+                    .str.strip()
                 )
+
+                genres = genres[genres.ne("")]
+
+                genre_counts = genres.value_counts().head(12)
+
+                if not genre_counts.empty:
+                    chart_df = genre_counts.rename_axis(
+                        "Genre"
+                    ).reset_index(name="Count")
+
+                    fig = px.bar(
+                        chart_df,
+                        x="Count",
+                        y="Genre",
+                        orientation="h",
+                        title="Most Common Genres",
+                        color="Count",
+                        color_continuous_scale=[
+                            "#164E4A",
+                            ACCENT,
+                        ],
+                    )
+
+                    fig.update_layout(
+                        yaxis={"categoryorder": "total ascending"}
+                    )
+
+                    st.plotly_chart(
+                        style_chart(fig),
+                        use_container_width=True,
+                    )
+            else:
+                st.info("No genre column was found.")
+
+        with right:
+            if year_col:
+                if year_col.lower() == "release_date":
+                    years = pd.to_datetime(
+                        movies_df[year_col],
+                        errors="coerce",
+                    ).dt.year
+                else:
+                    years = pd.to_numeric(
+                        movies_df[year_col],
+                        errors="coerce",
+                    )
+
+                year_counts = (
+                    years.dropna()
+                    .astype(int)
+                    .value_counts()
+                    .sort_index()
+                    .rename_axis("Year")
+                    .reset_index(name="Records")
+                )
+
+                if not year_counts.empty:
+                    fig = px.area(
+                        year_counts,
+                        x="Year",
+                        y="Records",
+                        title="Movies by Year",
+                    )
+
+                    fig.update_traces(
+                        line_color=ACCENT,
+                        fillcolor="rgba(45,212,191,0.18)",
+                    )
+
+                    st.plotly_chart(
+                        style_chart(fig),
+                        use_container_width=True,
+                    )
+            else:
+                st.info("No release-year column was found.")
+
+        if rating_col:
+            ratings = pd.to_numeric(
+                movies_df[rating_col],
+                errors="coerce",
+            ).dropna()
+
+            if not ratings.empty:
+                fig = px.histogram(
+                    x=ratings,
+                    nbins=20,
+                    title="Movie Rating Distribution",
+                )
+
+                fig.update_traces(marker_color=ACCENT)
+
+                st.plotly_chart(
+                    style_chart(fig),
+                    use_container_width=True,
+                )
+
+        section_heading("Movie Dataset Preview")
+
+        st.dataframe(
+            movies_df.head(100),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
+# ============================================================
+# BOOK ANALYTICS PAGE
+# ============================================================
+
+elif page == "Book Analytics":
+
+    st.markdown(
+        """
+        <div class="page-heading">Book Analytics</div>
+        <div class="page-description">
+            Explore authors, publication years, ratings, and book records.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if books_df.empty:
+        show_missing_dataset("book", BOOKS_PATH)
+
+    else:
+        author_col = get_creator_column(books_df, "book")
+
+        year_col = find_column(
+            books_df,
+            [
+                "publication_year",
+                "year",
+                "published_year",
+                "year_of_publication",
+            ],
+        )
+
+        rating_col = find_column(
+            books_df,
+            ["average_rating", "rating", "book_rating", "score"],
+        )
+
+        c1, c2, c3, c4 = st.columns(4)
+
+        with c1:
+            metric_card("Total Records", f"{len(books_df):,}")
+
+        with c2:
+            metric_card("Dataset Columns", str(len(books_df.columns)))
+
+        with c3:
+            metric_card(
+                "Missing Cells",
+                f"{int(books_df.isna().sum().sum()):,}",
+            )
+
+        with c4:
+            metric_card(
+                "Duplicate Rows",
+                f"{int(books_df.duplicated().sum()):,}",
+            )
+
+        left, right = st.columns(2)
+
+        with left:
+            if author_col:
+                authors = (
+                    books_df[author_col]
+                    .dropna()
+                    .astype(str)
+                    .str.split(r",|;|\|")
+                    .explode()
+                    .str.strip()
+                )
+
+                authors = authors[authors.ne("")]
+
+                author_counts = authors.value_counts().head(12)
+
+                if not author_counts.empty:
+                    chart_df = author_counts.rename_axis(
+                        "Author"
+                    ).reset_index(name="Records")
+
+                    fig = px.bar(
+                        chart_df,
+                        x="Records",
+                        y="Author",
+                        orientation="h",
+                        title="Authors with Most Records",
+                        color="Records",
+                        color_continuous_scale=[
+                            "#164E4A",
+                            ACCENT,
+                        ],
+                    )
+
+                    fig.update_layout(
+                        yaxis={"categoryorder": "total ascending"}
+                    )
+
+                    st.plotly_chart(
+                        style_chart(fig),
+                        use_container_width=True,
+                    )
+            else:
+                st.info("No author column was found.")
+
+        with right:
+            if year_col:
+                years = pd.to_numeric(
+                    books_df[year_col],
+                    errors="coerce",
+                )
+
+                year_counts = (
+                    years.dropna()
+                    .astype(int)
+                    .value_counts()
+                    .sort_index()
+                    .rename_axis("Year")
+                    .reset_index(name="Records")
+                )
+
+                if not year_counts.empty:
+                    fig = px.line(
+                        year_counts,
+                        x="Year",
+                        y="Records",
+                        markers=True,
+                        title="Books by Publication Year",
+                    )
+
+                    fig.update_traces(
+                        line_color=ACCENT,
+                        marker_color=ACCENT,
+                    )
+
+                    st.plotly_chart(
+                        style_chart(fig),
+                        use_container_width=True,
+                    )
+            else:
+                st.info("No publication-year column was found.")
+
+        if rating_col:
+            ratings = pd.to_numeric(
+                books_df[rating_col],
+                errors="coerce",
+            ).dropna()
+
+            if not ratings.empty:
+                fig = px.histogram(
+                    x=ratings,
+                    nbins=20,
+                    title="Book Rating Distribution",
+                )
+
+                fig.update_traces(marker_color=ACCENT)
+
+                st.plotly_chart(
+                    style_chart(fig),
+                    use_container_width=True,
+                )
+
+        section_heading("Book Dataset Preview")
+
+        st.dataframe(
+            books_df.head(100),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+
+# ============================================================
+# AI / NLP PAGE
+# ============================================================
+
+elif page == "AI / NLP":
+
+    st.markdown(
+        """
+        <div class="page-heading">AI & NLP Insights</div>
+        <div class="page-description">
+            Understand the techniques commonly used in content-based
+            recommendation systems.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown(
+            """
+            <div class="content-card">
+                <div class="content-card-title">
+                    01. Text Processing
+                </div>
+                <div class="content-card-description">
+                    Text information can be cleaned and standardized
+                    before being converted into numerical features.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <div class="content-card">
+                <div class="content-card-title">
+                    02. TF-IDF
+                </div>
+                <div class="content-card-description">
+                    TF-IDF assigns weights to terms according to their
+                    frequency in a document and their distribution
+                    across the collection.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with right:
+        st.markdown(
+            """
+            <div class="content-card">
+                <div class="content-card-title">
+                    03. Cosine Similarity
+                </div>
+                <div class="content-card-description">
+                    Cosine similarity compares numerical vectors to
+                    estimate how similar their directions are.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <div class="content-card">
+                <div class="content-card-title">
+                    04. Recommendation Ranking
+                </div>
+                <div class="content-card-description">
+                    Candidate items can be ranked using their similarity
+                    scores, and the highest-ranked eligible items can
+                    be returned to the user.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    section_heading("TF-IDF Formula")
+
+    st.latex(
+        r"\operatorname{TFIDF}(t,d)"
+        r"=\operatorname{TF}(t,d)"
+        r"\times \operatorname{IDF}(t)"
+    )
+
+    section_heading("Cosine Similarity Formula")
+
+    st.latex(
+        r"\operatorname{similarity}(A,B)"
+        r"=\frac{A\cdot B}{\|A\|\|B\|}"
+    )
+
+    st.markdown(
+        """
+        <div class="insight-box">
+            <strong>Important:</strong>
+            These are common recommendation-system techniques.
+            The exact method used by MovieBook AI depends on the
+            implementation in your existing recommender files.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    comparison = pd.DataFrame(
+        {
+            "Method": [
+                "Content-Based Filtering",
+                "Collaborative Filtering",
+                "Hybrid Recommendation",
+            ],
+            "Input": [
+                "Item content and metadata",
+                "User-item interactions",
+                "Content and interactions",
+            ],
+            "Advantage": [
+                "Can work without extensive user history",
+                "Can learn preference patterns",
+                "Combines multiple information sources",
+            ],
+        }
+    )
+
+    st.dataframe(
+        comparison,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+# ============================================================
+# DATASET EXPLORER
+# ============================================================
+
+elif page == "Dataset Explorer":
+
+    st.markdown(
+        """
+        <div class="page-heading">Dataset Explorer</div>
+        <div class="page-description">
+            Search, inspect, and understand your processed datasets.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    selected_type = st.radio(
+        "Select dataset",
+        ["Movies", "Books"],
+        horizontal=True,
+    )
+
+    selected_df = (
+        movies_df
+        if selected_type == "Movies"
+        else books_df
+    )
+
+    if selected_df.empty:
+        show_missing_dataset(
+            selected_type.lower(),
+            MOVIES_PATH if selected_type == "Movies" else BOOKS_PATH,
+        )
+
+    else:
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            metric_card("Rows", f"{len(selected_df):,}")
+
+        with c2:
+            metric_card("Columns", f"{len(selected_df.columns):,}")
+
+        with c3:
+            metric_card(
+                "Missing Values",
+                f"{int(selected_df.isna().sum().sum()):,}",
+            )
+
+        search_column = st.selectbox(
+            "Search in",
+            ["All columns"] + list(selected_df.columns),
+        )
+
+        search_text = st.text_input(
+            "Search dataset",
+            placeholder="Type a title, author, genre, or keyword...",
+        )
+
+        filtered_df = selected_df.copy()
+
+        if search_text.strip():
+            if search_column == "All columns":
+                mask = filtered_df.astype(str).apply(
+                    lambda col: col.str.contains(
+                        search_text.strip(),
+                        case=False,
+                        na=False,
+                        regex=False,
+                    )
+                ).any(axis=1)
+
+            else:
+                mask = filtered_df[search_column].astype(str).str.contains(
+                    search_text.strip(),
+                    case=False,
+                    na=False,
+                    regex=False,
+                )
+
+            filtered_df = filtered_df[mask]
+
+        st.caption(
+            f"Found {len(filtered_df):,} matching records."
+        )
+
+        st.dataframe(
+            filtered_df.head(1000),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        section_heading("Missing Values by Column")
+
+        missing_df = pd.DataFrame(
+            {
+                "Column": selected_df.columns,
+                "Missing Values": [
+                    int(selected_df[col].isna().sum())
+                    for col in selected_df.columns
+                ],
             }
         )
 
-        st.bar_chart(
-            indian_counts
+        missing_df["Missing Percentage"] = (
+            missing_df["Missing Values"]
+            / max(len(selected_df), 1)
+            * 100
+        ).round(2)
+
+        missing_df = missing_df.sort_values(
+            "Missing Values",
+            ascending=False,
         )
 
-    # --------------------------------------------------------
-    # RELEASE YEARS
-    # --------------------------------------------------------
+        missing_nonzero = missing_df[
+            missing_df["Missing Values"] > 0
+        ].head(20)
 
-    st.header(
-        "📅 Movies by Release Year"
-    )
+        if missing_nonzero.empty:
+            st.success("No missing values were found.")
+        else:
+            fig = px.bar(
+                missing_nonzero,
+                x="Missing Values",
+                y="Column",
+                orientation="h",
+                title="Columns with Missing Values",
+                color="Missing Values",
+                color_continuous_scale=[
+                    "#164E4A",
+                    ACCENT,
+                ],
+            )
 
-    if "year" in movies.columns:
+            fig.update_layout(
+                yaxis={"categoryorder": "total ascending"}
+            )
 
-        movie_years = pd.to_numeric(
-            movies["year"],
-            errors="coerce"
-        )
+            st.plotly_chart(
+                style_chart(fig),
+                use_container_width=True,
+            )
 
-        yearly_movies = (
-            movie_years
-            .dropna()
-            .astype(int)
-            .value_counts()
-            .sort_index()
-        )
+        with st.expander("View column data types"):
+            dtype_df = pd.DataFrame(
+                {
+                    "Column": selected_df.columns,
+                    "Data Type": [
+                        str(dtype)
+                        for dtype in selected_df.dtypes
+                    ],
+                }
+            )
 
-        st.line_chart(
-            yearly_movies
-        )
-
-    # --------------------------------------------------------
-    # GENRES
-    # --------------------------------------------------------
-
-    st.header(
-        "🎭 Top Genres"
-    )
-
-    if "genre" in movies.columns:
-
-        genre_counts = (
-            movies["genre"]
-            .fillna("")
-            .astype(str)
-            .str.split(",")
-            .explode()
-            .str.strip()
-            .replace("", pd.NA)
-            .dropna()
-            .value_counts()
-            .head(15)
-        )
-
-        st.bar_chart(
-            genre_counts
-        )
-
-    # --------------------------------------------------------
-    # DATASET
-    # --------------------------------------------------------
-
-    st.header(
-        "🎬 Movie Dataset"
-    )
-
-    display_columns = [
-        "title",
-        "genre",
-        "director",
-        "year",
-        "source",
-        "is_indian"
-    ]
-
-    display_columns = [
-        column
-        for column in display_columns
-        if column in movies.columns
-    ]
-
-    st.dataframe(
-        movies[
-            display_columns
-        ].head(50),
-        use_container_width=True,
-        hide_index=True
-    )
+            st.dataframe(
+                dtype_df,
+                use_container_width=True,
+                hide_index=True,
+            )
 
 
 # ============================================================
-# BOOK ANALYTICS
+# FOOTER
 # ============================================================
 
-elif page == "📖 Book Analytics":
-
-    st.title(
-        "📖 Book Analytics"
-    )
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-
-        st.metric(
-            "Total Books",
-            f"{len(books):,}"
-        )
-
-    with col2:
-
-        st.metric(
-            "Authors",
-            f"{books['authors'].nunique():,}"
-        )
-
-    with col3:
-
-        st.metric(
-            "Categories",
-            f"{books['categories'].nunique():,}"
-        )
-
-    with col4:
-
-        average_rating = pd.to_numeric(
-            books["average_rating"],
-            errors="coerce"
-        ).mean()
-
-        if pd.isna(average_rating):
-            average_rating = 0
-
-        st.metric(
-            "Average Rating",
-            f"{average_rating:.2f}"
-        )
-
-    st.markdown("---")
-
-    # --------------------------------------------------------
-    # CATEGORIES
-    # --------------------------------------------------------
-
-    st.header(
-        "📚 Top Book Categories"
-    )
-
-    category_counts = (
-        books["categories"]
-        .fillna("")
-        .astype(str)
-        .str.split(",")
-        .explode()
-        .str.strip()
-        .replace("", pd.NA)
-        .dropna()
-        .value_counts()
-        .head(15)
-    )
-
-    st.bar_chart(
-        category_counts
-    )
-
-    # --------------------------------------------------------
-    # RATINGS
-    # --------------------------------------------------------
-
-    st.header(
-        "⭐ Rating Distribution"
-    )
-
-    rating_values = pd.to_numeric(
-        books["average_rating"],
-        errors="coerce"
-    ).dropna()
-
-    rating_distribution = (
-        rating_values
-        .round(1)
-        .value_counts()
-        .sort_index()
-    )
-
-    st.bar_chart(
-        rating_distribution
-    )
-
-    # --------------------------------------------------------
-    # PUBLISHED YEAR
-    # --------------------------------------------------------
-
-    st.header(
-        "📅 Books by Published Year"
-    )
-
-    published_year = pd.to_numeric(
-        books["published_year"],
-        errors="coerce"
-    )
-
-    books_by_year = (
-        published_year
-        .dropna()
-        .astype(int)
-        .value_counts()
-        .sort_index()
-    )
-
-    st.line_chart(
-        books_by_year
-    )
-
-    # --------------------------------------------------------
-    # MOST RATED
-    # --------------------------------------------------------
-
-    st.header(
-        "🔥 Most Rated Books"
-    )
-
-    most_rated = books[
-        [
-            "title",
-            "authors",
-            "average_rating",
-            "ratings_count"
-        ]
-    ].copy()
-
-    most_rated["ratings_count"] = pd.to_numeric(
-        most_rated["ratings_count"],
-        errors="coerce"
-    )
-
-    most_rated = (
-        most_rated
-        .sort_values(
-            "ratings_count",
-            ascending=False
-        )
-        .head(20)
-    )
-
-    st.dataframe(
-        most_rated,
-        use_container_width=True,
-        hide_index=True
-    )
-
-
-# ============================================================
-# AI / NLP INSIGHTS
-# ============================================================
-
-elif page == "🤖 AI / NLP Insights":
-
-    st.title(
-        "🤖 AI / NLP Insights"
-    )
-
-    st.header(
-        "🧠 Recommendation Approach"
-    )
-
-    st.write(
-        """
-        MovieBook AI uses content-based recommendation.
-        Instead of comparing users, the system compares
-        the content and textual characteristics of movies
-        and books.
-        """
-    )
-
-    # --------------------------------------------------------
-    # MOVIE FEATURES
-    # --------------------------------------------------------
-
-    st.header(
-        "🎬 Movie Features"
-    )
-
-    movie_features = pd.DataFrame(
-        {
-            "Feature": [
-                "Title",
-                "Director",
-                "Cast",
-                "Genre",
-                "Overview"
-            ],
-            "Purpose": [
-                "Movie identification",
-                "Director similarity",
-                "Actor similarity",
-                "Genre similarity",
-                "Story/content similarity"
-            ]
-        }
-    )
-
-    st.dataframe(
-        movie_features,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    # --------------------------------------------------------
-    # BOOK FEATURES
-    # --------------------------------------------------------
-
-    st.header(
-        "📚 Book Features"
-    )
-
-    book_features = pd.DataFrame(
-        {
-            "Feature": [
-                "Title",
-                "Subtitle",
-                "Authors",
-                "Categories",
-                "Description"
-            ],
-            "Purpose": [
-                "Book identification",
-                "Additional title information",
-                "Author similarity",
-                "Category similarity",
-                "Content similarity"
-            ]
-        }
-    )
-
-    st.dataframe(
-        book_features,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    # --------------------------------------------------------
-    # TF-IDF
-    # --------------------------------------------------------
-
-    st.header(
-        "1️⃣ TF-IDF"
-    )
-
-    st.write(
-        """
-        TF-IDF converts text into numerical vectors.
-        Words that are useful for distinguishing documents
-        receive greater importance.
-        """
-    )
-
-    st.latex(
-        r"TFIDF(t,d) = TF(t,d) \times IDF(t)"
-    )
-
-    # --------------------------------------------------------
-    # COSINE SIMILARITY
-    # --------------------------------------------------------
-
-    st.header(
-        "2️⃣ Cosine Similarity"
-    )
-
-    st.write(
-        """
-        Cosine similarity measures the similarity between
-        two TF-IDF vectors.
-        """
-    )
-
-    st.latex(
-        r"Cosine\ Similarity = \frac{A \cdot B}{||A|| ||B||}"
-    )
-
-    st.info(
-        """
-        Example:
-
-        A similarity score of 0.252 is displayed as
-        approximately 25.2%.
-
-        This is a similarity score, not a rating or
-        probability of liking.
-        """
-    )
-
-    # --------------------------------------------------------
-    # EVALUATION NOTE
-    # --------------------------------------------------------
-
-    st.header(
-        "📊 Recommendation Evaluation"
-    )
-
-    st.write(
-        """
-        This project uses content-based recommendation rather
-        than binary classification. Therefore, classification
-        metrics such as accuracy, precision, recall, F1-score,
-        and confusion matrix are not used for the recommendation
-        engine.
-
-        The recommendation output is based on TF-IDF
-        representation and cosine-similarity ranking.
-        """
-    )
-
-    # --------------------------------------------------------
-    # PIPELINE
-    # --------------------------------------------------------
-
-    st.header(
-        "3️⃣ Recommendation Pipeline"
-    )
-
-    st.code(
-        """
-Raw Dataset
-     ↓
-Data Cleaning
-     ↓
-Feature Engineering
-     ↓
-Text Combination
-     ↓
-TF-IDF Vectorization
-     ↓
-Cosine Similarity
-     ↓
-Similarity Ranking
-     ↓
-Top-N Recommendations
-        """,
-        language="text"
-    )
-
-    # --------------------------------------------------------
-    # TECHNOLOGY
-    # --------------------------------------------------------
-
-    st.header(
-        "🛠️ Technology Stack"
-    )
-
-    technology_data = pd.DataFrame(
-        {
-            "Component": [
-                "Programming",
-                "Data Processing",
-                "Machine Learning",
-                "NLP",
-                "Recommendation",
-                "Dashboard"
-            ],
-            "Technology": [
-                "Python",
-                "Pandas",
-                "Scikit-learn",
-                "TF-IDF",
-                "Cosine Similarity",
-                "Streamlit"
-            ]
-        }
-    )
-
-    st.dataframe(
-        technology_data,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    st.success(
-        """
-        MovieBook AI demonstrates data preprocessing,
-        exploratory data analysis, NLP feature engineering,
-        TF-IDF vectorization, cosine similarity,
-        content-based recommendation and Streamlit
-        dashboard development.
-        """
-    )
+st.markdown(
+    f"""
+    <div class="dashboard-footer">
+        <div style="
+            color:{ACCENT};
+            font-size:15px;
+            font-weight:800;">
+            MovieBook AI
+        </div>
+        Movies • Books • Content-Based Recommendations • Data Analytics
+        <br>
+        Built with Python, Streamlit, Pandas and Plotly
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
